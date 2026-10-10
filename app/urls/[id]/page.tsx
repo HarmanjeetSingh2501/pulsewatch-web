@@ -1,14 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import { api, Url, Ping } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 export default function UrlDetailPage() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <UrlDetailContent />
+    </Suspense>
+  );
+}
+
+function UrlDetailContent() {
   const params = useParams();
   const id = Number(params.id);
 
@@ -39,14 +47,7 @@ export default function UrlDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-8">
-        <Skeleton className="h-10 w-64 mb-6" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error || !url) {
     return (
@@ -62,14 +63,14 @@ export default function UrlDetailPage() {
 
   const upPings = pings.filter((p) => p.isUp).length;
   const uptimePct = pings.length > 0 ? (upPings / pings.length) * 100 : 0;
-  const avgResponse = pings.length > 0
-    ? Math.round(
-        pings
-          .filter((p) => p.responseTimeMs !== null)
-          .reduce((sum, p) => sum + (p.responseTimeMs || 0), 0) /
-          pings.filter((p) => p.responseTimeMs !== null).length
-      )
-    : 0;
+  const pingsWithTime = pings.filter((p) => p.responseTimeMs !== null);
+  const avgResponse =
+    pingsWithTime.length > 0
+      ? Math.round(
+          pingsWithTime.reduce((sum, p) => sum + (p.responseTimeMs || 0), 0) /
+            pingsWithTime.length
+        )
+      : 0;
 
   return (
     <div className="container mx-auto p-8">
@@ -78,24 +79,16 @@ export default function UrlDetailPage() {
         <p className="text-muted-foreground break-all">{url.url}</p>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
         <StatCard
           label="Uptime (last 100 pings)"
           value={`${uptimePct.toFixed(1)}%`}
           variant={uptimePct > 95 ? 'default' : 'destructive'}
         />
-        <StatCard
-          label="Avg Response Time"
-          value={`${avgResponse}ms`}
-        />
-        <StatCard
-          label="Total Checks"
-          value={pings.length.toString()}
-        />
+        <StatCard label="Avg Response Time" value={`${avgResponse}ms`} />
+        <StatCard label="Total Checks" value={pings.length.toString()} />
       </div>
 
-      {/* Ping History */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Pings</CardTitle>
@@ -113,21 +106,35 @@ export default function UrlDetailPage() {
                       ping.isUp ? 'bg-green-500' : 'bg-red-500'
                     }`}
                   />
-                  <span className="font-mono">
-                    {ping.statusCode || '—'}
-                  </span>
+                  <span className="font-mono">{ping.statusCode || '—'}</span>
                   <span className="text-muted-foreground">
                     {ping.responseTimeMs ? `${ping.responseTimeMs}ms` : 'timeout'}
                   </span>
                 </div>
                 <span className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(new Date(ping.checkedAt), { addSuffix: true })}
+                  {formatDistanceToNow(new Date(ping.checkedAt), {
+                    addSuffix: true,
+                  })}
                 </span>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="container mx-auto p-8">
+      <Skeleton className="h-10 w-64 mb-6" />
+      <div className="grid gap-4 md:grid-cols-3 mb-6">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24 w-full" />
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full" />
     </div>
   );
 }
@@ -145,7 +152,11 @@ function StatCard({
     <Card>
       <CardContent className="pt-6">
         <p className="text-sm text-muted-foreground mb-1">{label}</p>
-        <p className={`text-2xl font-bold ${variant === 'destructive' ? 'text-red-500' : ''}`}>
+        <p
+          className={`text-2xl font-bold ${
+            variant === 'destructive' ? 'text-red-500' : ''
+          }`}
+        >
           {value}
         </p>
       </CardContent>
