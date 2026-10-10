@@ -1,12 +1,19 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  // Only set Content-Type: application/json when the request has a body.
+  // Otherwise Fastify rejects DELETE/PATCH requests with:
+  // "Body cannot be empty when content-type is set to 'application/json'"
+  const hasBody = options.body !== undefined && options.body !== null;
+
+  const headers: Record<string, string> = {
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
@@ -71,7 +78,10 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  updateUrl: (id: number, data: Partial<CreateUrlInput> & { isActive?: boolean }) =>
+  updateUrl: (
+    id: number,
+    data: Partial<CreateUrlInput> & { isActive?: boolean }
+  ) =>
     request<Url>(`/api/v1/urls/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),

@@ -1,26 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useCallback } from 'react';
 import { api, Url } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Activity, AlertTriangle, ExternalLink, Plus } from 'lucide-react';
+import { Activity, AlertTriangle, Plus } from 'lucide-react';
+import { AddUrlDialog } from '@/components/urls/AddUrlDialog';
+import { UrlCard } from '@/components/urls/UrlCard';
 
 export default function DashboardPage() {
   const [urls, setUrls] = useState<Url[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUrls();
-    const interval = setInterval(loadUrls, 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function loadUrls() {
+  const loadUrls = useCallback(async () => {
     try {
       const data = await api.listUrls();
       setUrls(data);
@@ -30,53 +24,64 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadUrls();
+    const interval = setInterval(loadUrls, 30_000);
+    return () => clearInterval(interval);
+  }, [loadUrls]);
 
   return (
-    <main className="dashboard-shell">
-      <div className="container dashboard-inner">
-        <div className="dashboard-header">
+    <main className="min-h-[calc(100vh-74px)] bg-gradient-to-br from-lime-50/40 via-white to-lime-50/60 py-12 md:py-14">
+      <div className="mx-auto w-full max-w-6xl px-6">
+        {/* Header */}
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <span className="section-eyebrow">MONITORING OVERVIEW</span>
-            <h1 className="dashboard-title">
-              Your <span>dashboard</span>
-              <span className="live-dot" aria-hidden="true" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-green-700">
+              Monitoring overview
+            </span>
+            <h1 className="mt-2 inline-flex items-center gap-3 text-3xl font-bold tracking-tight text-neutral-900 md:text-4xl">
+              Your <span className="text-green-700">dashboard</span>
+              <span className="relative inline-block h-2.5 w-2.5 rounded-full bg-green-500">
+                <span className="absolute -inset-1 animate-ping rounded-full bg-green-500/40" />
+              </span>
             </h1>
           </div>
-          <Button className="dashboard-add-btn" size="lg">
-            <Plus aria-hidden="true" size={17} />
-            Add URL
-          </Button>
+
+          <AddUrlDialog onCreated={loadUrls} />
         </div>
 
+        {/* Loading */}
         {loading && (
-          <div className="dashboard-grid">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="url-card">
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
+              <Card key={i} className="rounded-2xl border-neutral-200">
+                <CardContent className="p-6">
+                  <Skeleton className="mb-3 h-5 w-3/4" />
+                  <Skeleton className="mb-2 h-3 w-full" />
+                  <Skeleton className="h-3 w-1/2" />
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
+        {/* Error */}
         {!loading && error && (
-          <Card className="error-card">
-            <CardContent className="pt-6">
-              <div className="error-row">
-                <span className="error-icon">
-                  <AlertTriangle aria-hidden="true" size={18} />
-                </span>
+          <Card className="rounded-2xl border-red-200 bg-red-50/50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg bg-red-100 text-red-600">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
                 <div>
-                  <p className="error-title">Error: {error}</p>
-                  <p className="error-help">
+                  <p className="font-semibold text-red-900">{error}</p>
+                  <p className="mt-1 text-sm text-red-700">
                     Make sure the backend is running at{' '}
-                    <code>{process.env.NEXT_PUBLIC_API_URL}</code>
+                    <code className="rounded bg-red-100 px-1.5 py-0.5 text-xs">
+                      {process.env.NEXT_PUBLIC_API_URL}
+                    </code>
                   </p>
                 </div>
               </div>
@@ -84,113 +89,42 @@ export default function DashboardPage() {
           </Card>
         )}
 
+        {/* Empty state */}
         {!loading && !error && urls.length === 0 && (
-          <Card className="empty-card">
-            <CardContent className="empty-content">
-              <span className="empty-icon">
-                <Activity aria-hidden="true" size={26} />
-              </span>
-              <h2>No services monitored yet</h2>
-              <p>Add your first URL and PulseWatch will start keeping a pulse on it.</p>
-              <Button className="dashboard-add-btn" size="lg">
-                <Plus aria-hidden="true" size={17} />
-                Add your first URL
-              </Button>
+          <Card className="rounded-2xl border-neutral-200 bg-white/90">
+            <CardContent className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-green-50 text-green-700">
+                <Activity className="h-7 w-7" />
+              </div>
+              <h2 className="mt-2 text-lg font-semibold tracking-tight text-neutral-900">
+                No services monitored yet
+              </h2>
+              <p className="mb-2 max-w-md text-sm leading-relaxed text-neutral-500">
+                Add your first URL and PulseWatch will start keeping a pulse on
+                it.
+              </p>
+              <AddUrlDialog onCreated={loadUrls}>
+                <Button
+                  size="lg"
+                  className="gap-2 rounded-xl bg-green-900 px-5 text-sm font-semibold text-white shadow-md shadow-green-900/10 transition-all hover:-translate-y-0.5 hover:bg-green-800 hover:shadow-lg"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add your first URL
+                </Button>
+              </AddUrlDialog>
             </CardContent>
           </Card>
         )}
 
+        {/* URL grid */}
         {!loading && !error && urls.length > 0 && (
-          <div className="dashboard-grid">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {urls.map((url) => (
-              <UrlCard key={url.id} url={url} />
+              <UrlCard key={url.id} url={url} onDeleted={loadUrls} />
             ))}
           </div>
         )}
       </div>
     </main>
   );
-}
-
-function UrlCard({ url }: { url: Url }) {
-  const latestPing = url.recentPings?.[0];
-  const isDown = !!latestPing && !latestPing.isUp;
-  const isUp = !!latestPing && latestPing.isUp;
-
-  const lastCheckLabel = latestPing?.checkedAt
-    ? `Checked ${formatRelative(latestPing.checkedAt)}`
-    : 'Awaiting first check';
-
-  return (
-    <Link href={`/urls/${url.id}`} className="url-card-link">
-      <Card
-        className={`url-card ${isDown ? 'url-card-down' : ''} ${
-          isUp ? 'url-card-up' : ''
-        }`}
-      >
-        <CardHeader>
-          <div className="url-card-head">
-            <div className="url-card-heading">
-              <CardTitle className="url-card-title">{url.name}</CardTitle>
-              <p className="url-card-url">{url.url}</p>
-            </div>
-            <StatusDot isActive={url.isActive} isDown={isDown} />
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <div className="url-card-badges">
-            <Badge variant="outline" className="pw-pill">
-              Every {url.checkIntervalSeconds}s
-            </Badge>
-            <Badge
-              variant={url.isActive ? 'default' : 'secondary'}
-              className="pw-pill"
-            >
-              {url.isActive ? 'Active' : 'Paused'}
-            </Badge>
-            {latestPing && (
-              <Badge
-                variant={latestPing.isUp ? 'default' : 'destructive'}
-                className="pw-pill"
-              >
-                {latestPing.isUp ? 'UP' : 'DOWN'}
-              </Badge>
-            )}
-          </div>
-
-          <div className="url-card-footer">
-            <span className="url-card-meta">{lastCheckLabel}</span>
-            <span className="url-card-open">
-              Open <ExternalLink aria-hidden="true" size={12} />
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}
-
-function StatusDot({
-  isActive,
-  isDown,
-}: {
-  isActive: boolean;
-  isDown?: boolean;
-}) {
-  const state = !isActive ? 'paused' : isDown ? 'down' : 'up';
-  return <span className={`status-pill status-pill-${state}`} aria-hidden="true" />;
-}
-
-function formatRelative(iso: string) {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return 'just now';
-  const diff = Math.max(0, Date.now() - then);
-  const s = Math.round(diff / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
 }
