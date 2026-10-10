@@ -1,13 +1,19 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import Link from 'next/link';
+import { Activity, ArrowRight } from 'lucide-react';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'PulseWatch',
-  description: 'Free uptime monitoring with AI incident summaries',
+  title: 'PulseWatch — Uptime monitoring with a pulse',
+  description:
+    'Keep a constant pulse on your websites and APIs with free uptime monitoring, fast incident alerts, and AI-powered summaries.',
 };
 
 export default function RootLayout({
@@ -16,24 +22,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <nav className="border-b">
-          <div className="container mx-auto flex h-16 items-center gap-6 px-8">
-            <Link href="/" className="font-bold text-xl">
-              PulseWatch
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans antialiased">
+        <header className="site-header">
+          <nav className="site-nav container" aria-label="Main navigation">
+            <Link href="/" className="site-logo" aria-label="PulseWatch home">
+              <span className="site-logo-icon">
+                <Activity aria-hidden="true" size={18} />
+              </span>
+              <span>
+                pulse<span>watch</span>
+              </span>
             </Link>
-            <div className="flex gap-4 text-sm">
-              <Link href="/dashboard" className="hover:text-foreground/80">
-                Dashboard
-              </Link>
-              <Link href="/incidents" className="hover:text-foreground/80">
-                Incidents
-              </Link>
+            <div className="site-nav-links">
+              <Link href="/dashboard">Dashboard</Link>
+              <Link href="/incidents">Incidents</Link>
             </div>
-          </div>
-        </nav>
-        <main>{children}</main>
+            <Link href="/dashboard" className="nav-cta">
+              Open dashboard <ArrowRight aria-hidden="true" size={15} />
+            </Link>
+          </nav>
+        </header>
+        <div className="app-content">{children}</div>
       </body>
     </html>
   );

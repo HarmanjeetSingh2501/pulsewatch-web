@@ -6,7 +6,15 @@ import { api, Incident } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, formatDistance, format } from 'date-fns';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BrainCircuit,
+  CheckCircle2,
+  Clock3,
+  Radio,
+} from 'lucide-react';
 
 export default function IncidentsPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -21,81 +29,195 @@ export default function IncidentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-8">
-        <h1 className="text-3xl font-bold mb-6">Incidents</h1>
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const openCount = incidents.filter((i) => i.status === 'open').length;
 
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">Incidents</h1>
-
-      {error ? (
-        <Card className="border-red-500">
-          <CardContent className="pt-6">
-            <p className="text-red-500">Error: {error}</p>
-          </CardContent>
-        </Card>
-      ) : incidents.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 py-12 text-center">
-            <p className="text-muted-foreground">
-              No incidents yet. That's a good thing.
+    <main className="incidents-shell">
+      <div className="container incidents-inner">
+        <div className="incidents-header">
+          <div>
+            <span className="section-eyebrow">INCIDENT LOG</span>
+            <h1 className="incidents-title">
+              Every <span>blip</span>, on the record
+              {openCount > 0 ? (
+                <span className="live-dot live-dot-red" aria-hidden="true" />
+              ) : (
+                <span className="live-dot" aria-hidden="true" />
+              )}
+            </h1>
+            <p className="incidents-subtitle">
+              {loading
+                ? 'Loading incidents…'
+                : error
+                ? 'Could not load incidents'
+                : incidents.length === 0
+                ? 'Nothing has gone wrong yet.'
+                : `${incidents.length} total · ${openCount} ongoing`}
             </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {incidents.map((incident) => (
-            <Card
-              key={incident.id}
-              className={incident.status === 'open' ? 'border-red-500' : ''}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{incident.urlName}</CardTitle>
-                  <Badge
-                    variant={incident.status === 'open' ? 'destructive' : 'secondary'}
-                  >
-                    {incident.status === 'open' ? 'ONGOING' : 'RESOLVED'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground break-all mb-2">
-                  {incident.url}
-                </p>
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Started:</span>{' '}
-                  {format(new Date(incident.startedAt), 'PPp')}
-                </p>
-                {incident.endedAt && (
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">Ended:</span>{' '}
-                    {format(new Date(incident.endedAt), 'PPp')}
-                  </p>
-                )}
-                {incident.aiSummary && (
-                  <div className="mt-4 p-3 bg-muted rounded-md">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      AI Summary
-                    </p>
-                    <p className="text-sm">{incident.aiSummary}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          </div>
         </div>
-      )}
-    </div>
+
+        {loading && (
+          <div className="incident-list">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="incident-card">
+                <CardHeader>
+                  <Skeleton className="h-5 w-1/3 mb-3" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-1/4" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!loading && error && (
+          <Card className="error-card">
+            <CardContent className="pt-6">
+              <div className="error-row">
+                <span className="error-icon">
+                  <AlertTriangle aria-hidden="true" size={18} />
+                </span>
+                <div>
+                  <p className="error-title">Error: {error}</p>
+                  <p className="error-help">
+                    Check that the API is reachable at{' '}
+                    <code>{process.env.NEXT_PUBLIC_API_URL}</code>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && !error && incidents.length === 0 && (
+          <Card className="empty-card">
+            <CardContent className="empty-content">
+              <span className="empty-icon empty-icon-green">
+                <CheckCircle2 aria-hidden="true" size={26} />
+              </span>
+              <h2>All quiet. That&apos;s a good thing.</h2>
+              <p>
+                No incidents have been recorded. PulseWatch will log and
+                summarize anything that goes down the moment it happens.
+              </p>
+              <Link href="/dashboard" className="button-secondary">
+                Back to dashboard
+                <ArrowRight aria-hidden="true" size={15} />
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {!loading && !error && incidents.length > 0 && (
+          <div className="incident-list">
+            {incidents.map((incident) => (
+              <IncidentCard key={incident.id} incident={incident} />
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function IncidentCard({ incident }: { incident: Incident }) {
+  const isOpen = incident.status === 'open';
+  const started = new Date(incident.startedAt);
+  const ended = incident.endedAt ? new Date(incident.endedAt) : null;
+
+  return (
+    <Card
+      className={`incident-card ${
+        isOpen ? 'incident-card-open' : 'incident-card-resolved'
+      }`}
+    >
+      <CardHeader>
+        <div className="incident-head">
+          <div className="incident-head-left">
+            <span
+              className={`status-pill ${
+                isOpen ? 'status-pill-down' : 'status-pill-up'
+              }`}
+            />
+            <CardTitle className="incident-title">
+              {incident.urlName}
+            </CardTitle>
+            <Badge
+              variant={isOpen ? 'destructive' : 'secondary'}
+              className="pw-pill"
+            >
+              {isOpen ? 'ONGOING' : 'RESOLVED'}
+            </Badge>
+          </div>
+          <span className="incident-duration">
+            {ended
+              ? `Duration ${formatDistance(started, ended)}`
+              : `Ongoing for ${formatDistanceToNow(started)}`}
+          </span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="incident-body">
+        <p className="incident-url">{incident.url}</p>
+
+        <div className="incident-timeline">
+          <div className="timeline-row">
+            <span className="timeline-icon">
+              <Radio aria-hidden="true" size={13} />
+            </span>
+            <span className="timeline-label">Started</span>
+            <span className="timeline-value">{format(started, 'PPp')}</span>
+          </div>
+          {ended && (
+            <div className="timeline-row">
+              <span className="timeline-icon timeline-icon-green">
+                <CheckCircle2 aria-hidden="true" size={13} />
+              </span>
+              <span className="timeline-label">Resolved</span>
+              <span className="timeline-value">{format(ended, 'PPp')}</span>
+            </div>
+          )}
+          {!ended && (
+            <div className="timeline-row timeline-row-live">
+              <span className="timeline-icon timeline-icon-red">
+                <Clock3 aria-hidden="true" size={13} />
+              </span>
+              <span className="timeline-label">Still down</span>
+              <span className="timeline-value">
+                {formatDistanceToNow(started)} and counting
+              </span>
+            </div>
+          )}
+        </div>
+
+        {incident.aiSummary ? (
+          <div className="ai-summary">
+            <div className="ai-summary-head">
+              <span className="ai-summary-icon">
+                <BrainCircuit aria-hidden="true" size={14} />
+              </span>
+              <span className="ai-summary-label">AI summary</span>
+            </div>
+            <p className="ai-summary-body">{incident.aiSummary}</p>
+          </div>
+        ) : (
+          <div className="ai-summary ai-summary-pending">
+            <div className="ai-summary-head">
+              <span className="ai-summary-icon">
+                <BrainCircuit aria-hidden="true" size={14} />
+              </span>
+              <span className="ai-summary-label">AI summary</span>
+            </div>
+            <p className="ai-summary-body ai-summary-pending-text">
+              Generating a summary once the incident resolves…
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
