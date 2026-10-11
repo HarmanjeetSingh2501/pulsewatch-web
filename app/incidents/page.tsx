@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Clock3,
   Radio,
+  Sparkles,
 } from 'lucide-react';
 
 export default function IncidentsPage() {
@@ -194,26 +195,36 @@ function IncidentCard({ incident }: { incident: Incident }) {
           )}
         </div>
 
+        {/* ─── AI Summary ─────────────────────────────────── */}
         {incident.aiSummary ? (
-          <div className="ai-summary">
-            <div className="ai-summary-head">
-              <span className="ai-summary-icon">
-                <BrainCircuit aria-hidden="true" size={14} />
+          <div className="mt-4 rounded-xl border border-green-100 bg-gradient-to-br from-lime-50 to-white p-4">
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md bg-green-100 text-green-700">
+                <BrainCircuit className="h-3.5 w-3.5" />
               </span>
-              <span className="ai-summary-label">AI summary</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-green-700">
+                AI Summary
+              </span>
+              <Sparkles className="h-3 w-3 text-lime-500" />
             </div>
-            <p className="ai-summary-body">{incident.aiSummary}</p>
+            <p className="text-[13px] leading-relaxed text-neutral-700">
+              {incident.aiSummary}
+            </p>
           </div>
         ) : (
-          <div className="ai-summary ai-summary-pending">
-            <div className="ai-summary-head">
-              <span className="ai-summary-icon">
-                <BrainCircuit aria-hidden="true" size={14} />
+          <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
+            <div className="mb-2.5 flex items-center gap-2">
+              <span className="grid h-6 w-6 flex-shrink-0 place-items-center rounded-md bg-neutral-200 text-neutral-500">
+                <BrainCircuit className="h-3.5 w-3.5" />
               </span>
-              <span className="ai-summary-label">AI summary</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-neutral-500">
+                AI Summary
+              </span>
             </div>
-            <p className="ai-summary-body ai-summary-pending-text">
-              Generating a summary once the incident resolves…
+            <p className="text-[13px] italic leading-relaxed text-neutral-500">
+              {isOpen
+                ? 'Summary will be generated once the incident resolves.'
+                : 'Generating summary… refresh in a few seconds.'}
             </p>
           </div>
         )}
