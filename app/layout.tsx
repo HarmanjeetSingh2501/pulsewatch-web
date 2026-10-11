@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import Link from 'next/link';
-import { Activity, ArrowRight } from 'lucide-react';
+import { Activity } from 'lucide-react';
+import { Toaster } from '@/components/ui/sonner';
+import { NavAuth } from '@/components/auth/NavAuth';
 import './globals.css';
 
 const inter = Inter({
@@ -38,12 +40,11 @@ export default function RootLayout({
               <Link href="/dashboard">Dashboard</Link>
               <Link href="/incidents">Incidents</Link>
             </div>
-            <Link href="/dashboard" className="nav-cta">
-              Open dashboard <ArrowRight aria-hidden="true" size={15} />
-            </Link>
+            <NavAuth />
           </nav>
         </header>
         <div className="app-content">{children}</div>
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   );

@@ -1,3 +1,6 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -11,6 +14,7 @@ import {
   ShieldCheck,
   Zap,
 } from 'lucide-react';
+import { auth } from '@/lib/auth';
 
 const features = [
   {
@@ -43,6 +47,12 @@ const services = [
 ];
 
 export default function HomePage() {
+  const [isAuthed, setIsAuthed] = useState(false);
+
+  useEffect(() => {
+    setIsAuthed(auth.isAuthenticated());
+  }, []);
+
   return (
     <main className="landing">
       <section className="hero-shell">
@@ -65,13 +75,22 @@ export default function HomePage() {
             </p>
 
             <div className="hero-actions">
-              <Link className="button-primary" href="/dashboard">
-                Go to your dashboard
-                <ArrowRight aria-hidden="true" size={17} />
-              </Link>
-              <Link className="button-secondary" href="/incidents">
-                Explore incidents
-              </Link>
+              {isAuthed ? (
+                <Link className="button-primary" href="/dashboard">
+                  Go to your dashboard
+                  <ArrowRight aria-hidden="true" size={17} />
+                </Link>
+              ) : (
+                <>
+                  <Link className="button-primary" href="/register">
+                    Get started free
+                    <ArrowRight aria-hidden="true" size={17} />
+                  </Link>
+                  <Link className="button-secondary" href="/login">
+                    Sign in
+                  </Link>
+                </>
+              )}
             </div>
 
             <div className="hero-proof">
@@ -275,8 +294,8 @@ export default function HomePage() {
               <span className="section-eyebrow">YOUR NEXT CHECK IS A CLICK AWAY</span>
               <h2>Keep your services in rhythm.</h2>
             </div>
-            <Link className="button-primary" href="/dashboard">
-              Get started for free
+            <Link className="button-primary" href={isAuthed ? '/dashboard' : '/register'}>
+              {isAuthed ? 'Go to your dashboard' : 'Get started for free'}
               <ArrowRight aria-hidden="true" size={17} />
             </Link>
           </div>

@@ -1,13 +1,14 @@
+import { auth } from './auth';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  // Only set Content-Type: application/json when the request has a body.
-  // Otherwise Fastify rejects DELETE/PATCH requests with:
-  // "Body cannot be empty when content-type is set to 'application/json'"
   const hasBody = options.body !== undefined && options.body !== null;
+  const token = auth.getToken();
 
   const headers: Record<string, string> = {
     ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
@@ -17,6 +18,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!res.ok) {
+    // Auto-clear auth on 401 (token expired/invalid)
+    if (res.status === 401) {
+      auth.clear();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+
     const error = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(error.error || 'Request failed');
   }
@@ -26,6 +35,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 // ─── Types ────────────────────────────────────────────────
+export interface AuthResponse {
+  token: string;
+  user: { id: number; email: string };
+}
+
 export interface Url {
   id: number;
   userId: number;
@@ -36,6 +50,10 @@ export interface Url {
   nextCheckAt: string;
   createdAt: string;
   recentPings?: Ping[];
+  status?: 'up' | 'degraded' | 'down' | 'paused' | 'unknown';
+  zScore?: number | null;
+  baselineMean?: number | null;
+  baselineStdDev?: number | null;
 }
 
 export interface Ping {
@@ -65,25 +83,26 @@ export interface CreateUrlInput {
   name: string;
   checkIntervalSeconds?: number;
 }
-export interface Url {
-  id: number;
-  userId: number;
-  url: string;
-  name: string;
-  checkIntervalSeconds: number;
-  isActive: boolean;
-  nextCheckAt: string;
-  createdAt: string;
-  recentPings?: Ping[];
-  // ─── NEW ────────────────────────────────────────────
-  status?: 'up' | 'degraded' | 'down' | 'paused' | 'unknown';
-  zScore?: number | null;
-  baselineMean?: number | null;
-  baselineStdDev?: number | null;
-}
 
 // ─── API ──────────────────────────────────────────────────
 export const api = {
+  // ─── Auth ─────────────────────────────────────────────
+  register: (email: string, password: string) =>
+    request<AuthResponse>('/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  login: (email: string, password: string) =>
+    request<AuthResponse>('/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  me: () =>
+    request<{ id: number; email: string; createdAt: string }>('/api/v1/auth/me'),
+
+  // ─── URLs ─────────────────────────────────────────────
   listUrls: () => request<Url[]>('/api/v1/urls'),
 
   getUrl: (id: number) => request<Url>(`/api/v1/urls/${id}`),
@@ -111,6 +130,7 @@ export const api = {
       `/api/v1/urls/${urlId}/pings?limit=${limit}`
     ),
 
+  // ─── Incidents ────────────────────────────────────────
   listIncidents: (params?: { status?: string; urlId?: number }) => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
