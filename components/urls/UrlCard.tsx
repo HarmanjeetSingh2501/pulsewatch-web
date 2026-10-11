@@ -42,12 +42,10 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
 
   const latestPing = url.recentPings?.[0];
 
-  // Status is computed server-side now — prefer it, fall back to legacy logic
   const status = url.status ?? 'unknown';
   const isDown = status === 'down' || (!!latestPing && !latestPing.isUp);
   const isDegraded = status === 'degraded';
   const isUp = !isDown && !isDegraded && status === 'up';
-  const isPaused = status === 'paused';
 
   const lastCheckLabel = latestPing?.checkedAt
     ? `Checked ${formatRelative(latestPing.checkedAt)}`
@@ -70,19 +68,37 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
     }
   }
 
+  // Border color based on state
+  const borderClass = isDown
+    ? 'border-red-200'
+    : isDegraded
+    ? 'border-amber-200'
+    : 'border-neutral-200';
+
+  // Left accent stripe color based on state
+  const accentClass = isDown
+    ? 'bg-gradient-to-b from-red-400 to-red-500'
+    : isDegraded
+    ? 'bg-gradient-to-b from-amber-300 to-orange-400'
+    : isUp
+    ? 'bg-gradient-to-b from-lime-300 to-green-400'
+    : 'bg-neutral-200';
+
+  const showAccent = isUp || isDown || isDegraded;
+
   return (
     <>
       <Card
-        className={`relative h-full overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${
-          isDown
-            ? 'border-red-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-red-400 before:to-red-500'
-            : isDegraded
-            ? 'border-amber-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-amber-300 before:to-orange-400'
-            : isUp
-            ? 'border-neutral-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-lime-300 before:to-green-400'
-            : 'border-neutral-200'
-        }`}
+        className={`relative h-full rounded-2xl border bg-white/90 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${borderClass}`}
       >
+        {/* Left accent stripe */}
+        {showAccent && (
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-l-2xl ${accentClass}`}
+          />
+        )}
+
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -117,13 +133,18 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
+
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="z-50 w-40 rounded-xl border border-neutral-200 bg-white p-1 shadow-lg shadow-neutral-900/5"
+                >
                   <DropdownMenuItem
                     onSelect={(e) => {
                       e.preventDefault();
                       setTimeout(() => setConfirmOpen(true), 50);
                     }}
-                    className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700"
+                    className="cursor-pointer rounded-lg px-2.5 py-2 text-sm font-medium text-red-600 focus:bg-red-50 focus:text-red-700"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
@@ -154,7 +175,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
               {url.isActive ? 'Active' : 'Paused'}
             </Badge>
 
-            {/* Down badge */}
             {isDown && (
               <Badge
                 variant="destructive"
@@ -164,7 +184,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
               </Badge>
             )}
 
-            {/* Degraded badge with z-score */}
             {isDegraded && (
               <Badge
                 variant="outline"
@@ -180,7 +199,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
               </Badge>
             )}
 
-            {/* Up badge (only if not degraded) */}
             {isUp && (
               <Badge
                 variant="default"
@@ -191,15 +209,15 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
             )}
           </div>
 
-          {/* Degraded explanation strip */}
           {isDegraded && url.baselineMean != null && (
             <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-[11px] text-amber-800">
-              <span className="font-medium">Response time anomaly detected.</span>{' '}
+              <span className="font-medium">
+                Response time anomaly detected.
+              </span>{' '}
               {latestPing?.responseTimeMs != null && (
                 <>
-                  Current <strong>{latestPing.responseTimeMs}ms</strong>
-                  {' '}vs baseline{' '}
-                  <strong>{Math.round(url.baselineMean)}ms</strong>
+                  Current <strong>{latestPing.responseTimeMs}ms</strong> vs
+                  baseline <strong>{Math.round(url.baselineMean)}ms</strong>
                 </>
               )}
             </div>
@@ -219,7 +237,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
         </CardContent>
       </Card>
 
-      {/* ─── Delete Confirmation ───────────────────────────── */}
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {
