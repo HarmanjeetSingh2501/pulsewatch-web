@@ -65,6 +65,22 @@ export interface CreateUrlInput {
   name: string;
   checkIntervalSeconds?: number;
 }
+export interface Url {
+  id: number;
+  userId: number;
+  url: string;
+  name: string;
+  checkIntervalSeconds: number;
+  isActive: boolean;
+  nextCheckAt: string;
+  createdAt: string;
+  recentPings?: Ping[];
+  // ─── NEW ────────────────────────────────────────────
+  status?: 'up' | 'degraded' | 'down' | 'paused' | 'unknown';
+  zScore?: number | null;
+  baselineMean?: number | null;
+  baselineStdDev?: number | null;
+}
 
 // ─── API ──────────────────────────────────────────────────
 export const api = {

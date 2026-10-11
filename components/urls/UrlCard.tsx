@@ -21,7 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ExternalLink, MoreVertical, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
+import {
+  ExternalLink,
+  MoreVertical,
+  Trash2,
+  AlertTriangle,
+  Loader2,
+  TrendingUp,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UrlCardProps {
@@ -34,27 +41,29 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
   const [deleting, setDeleting] = useState(false);
 
   const latestPing = url.recentPings?.[0];
-  const isDown = !!latestPing && !latestPing.isUp;
-  const isUp = !!latestPing && latestPing.isUp;
+
+  // Status is computed server-side now — prefer it, fall back to legacy logic
+  const status = url.status ?? 'unknown';
+  const isDown = status === 'down' || (!!latestPing && !latestPing.isUp);
+  const isDegraded = status === 'degraded';
+  const isUp = !isDown && !isDegraded && status === 'up';
+  const isPaused = status === 'paused';
 
   const lastCheckLabel = latestPing?.checkedAt
     ? `Checked ${formatRelative(latestPing.checkedAt)}`
     : 'Awaiting first check';
 
   async function handleDelete() {
-    console.log('[UrlCard] Deleting URL', url.id);
     setDeleting(true);
 
     try {
       await api.deleteUrl(url.id);
-      console.log('[UrlCard] Delete successful');
       toast.success('URL removed', {
         description: `${url.name} is no longer being monitored.`,
       });
       setConfirmOpen(false);
       onDeleted();
     } catch (err: any) {
-      console.error('[UrlCard] Delete failed', err);
       toast.error('Failed to delete', { description: err.message });
     } finally {
       setDeleting(false);
@@ -67,6 +76,8 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
         className={`relative h-full overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${
           isDown
             ? 'border-red-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-red-400 before:to-red-500'
+            : isDegraded
+            ? 'border-amber-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-amber-300 before:to-orange-400'
             : isUp
             ? 'border-neutral-200 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-gradient-to-b before:from-lime-300 before:to-green-400'
             : 'border-neutral-200'
@@ -89,7 +100,11 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
             </div>
 
             <div className="flex flex-shrink-0 items-center gap-1.5">
-              <StatusDot isActive={url.isActive} isDown={isDown} />
+              <StatusDot
+                isActive={url.isActive}
+                isDown={isDown}
+                isDegraded={isDegraded}
+              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -106,7 +121,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
                   <DropdownMenuItem
                     onSelect={(e) => {
                       e.preventDefault();
-                      // Defer until after dropdown fully closes
                       setTimeout(() => setConfirmOpen(true), 50);
                     }}
                     className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700"
@@ -128,6 +142,7 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
             >
               Every {url.checkIntervalSeconds}s
             </Badge>
+
             <Badge
               variant={url.isActive ? 'default' : 'secondary'}
               className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
@@ -138,19 +153,57 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
             >
               {url.isActive ? 'Active' : 'Paused'}
             </Badge>
-            {latestPing && (
+
+            {/* Down badge */}
+            {isDown && (
               <Badge
-                variant={latestPing.isUp ? 'default' : 'destructive'}
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
-                  latestPing.isUp
-                    ? 'bg-green-600 hover:bg-green-600'
-                    : 'bg-red-600 hover:bg-red-600'
-                }`}
+                variant="destructive"
+                className="rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-medium hover:bg-red-600"
               >
-                {latestPing.isUp ? 'UP' : 'DOWN'}
+                DOWN
+              </Badge>
+            )}
+
+            {/* Degraded badge with z-score */}
+            {isDegraded && (
+              <Badge
+                variant="outline"
+                className="flex items-center gap-1 rounded-full border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[10px] font-medium text-amber-700"
+              >
+                <TrendingUp className="h-3 w-3" />
+                DEGRADED
+                {url.zScore != null && (
+                  <span className="ml-0.5 text-amber-500">
+                    z={url.zScore.toFixed(1)}
+                  </span>
+                )}
+              </Badge>
+            )}
+
+            {/* Up badge (only if not degraded) */}
+            {isUp && (
+              <Badge
+                variant="default"
+                className="rounded-full bg-green-600 px-2.5 py-0.5 text-[10px] font-medium hover:bg-green-600"
+              >
+                UP
               </Badge>
             )}
           </div>
+
+          {/* Degraded explanation strip */}
+          {isDegraded && url.baselineMean != null && (
+            <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 text-[11px] text-amber-800">
+              <span className="font-medium">Response time anomaly detected.</span>{' '}
+              {latestPing?.responseTimeMs != null && (
+                <>
+                  Current <strong>{latestPing.responseTimeMs}ms</strong>
+                  {' '}vs baseline{' '}
+                  <strong>{Math.round(url.baselineMean)}ms</strong>
+                </>
+              )}
+            </div>
+          )}
 
           <Link
             href={`/urls/${url.id}`}
@@ -170,7 +223,6 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
       <AlertDialog
         open={confirmOpen}
         onOpenChange={(open) => {
-          // Block closing while deleting
           if (!deleting) setConfirmOpen(open);
         }}
       >
@@ -186,15 +238,14 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
               <strong className="font-semibold text-neutral-800">
                 {url.name}
               </strong>{' '}
-              and all its ping history will be permanently deleted. This
-              cannot be undone.
+              and all its ping history will be permanently deleted. This cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
 
-            {/* Plain Button, NOT AlertDialogAction — this is the fix */}
             <Button
               type="button"
               onClick={handleDelete}
@@ -220,17 +271,27 @@ export function UrlCard({ url, onDeleted }: UrlCardProps) {
 function StatusDot({
   isActive,
   isDown,
+  isDegraded,
 }: {
   isActive: boolean;
   isDown?: boolean;
+  isDegraded?: boolean;
 }) {
-  const state = !isActive ? 'paused' : isDown ? 'down' : 'up';
+  const state = !isActive
+    ? 'paused'
+    : isDown
+    ? 'down'
+    : isDegraded
+    ? 'degraded'
+    : 'up';
 
   const colorClass =
     state === 'paused'
       ? 'bg-neutral-300'
       : state === 'down'
       ? 'bg-red-500'
+      : state === 'degraded'
+      ? 'bg-amber-500'
       : 'bg-green-500';
 
   const ringClass =
@@ -238,6 +299,8 @@ function StatusDot({
       ? ''
       : state === 'down'
       ? 'before:border-red-500'
+      : state === 'degraded'
+      ? 'before:border-amber-500'
       : 'before:border-green-500';
 
   return (
